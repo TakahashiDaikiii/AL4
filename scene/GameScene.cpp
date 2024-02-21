@@ -1,12 +1,10 @@
 #include "GameScene.h"
+#include "AxisIndicator.h"
 #include "TextureManager.h"
 #include <cassert>
-#include"Player.h"
-#include <AxisIndicator.h>
 
-
-
-GameScene::GameScene() {}
+    GameScene::GameScene() {
+}
 
 GameScene::~GameScene() {}
 
@@ -16,21 +14,29 @@ void GameScene::Initialize() {
 	input_ = Input::GetInstance();
 	audio_ = Audio::GetInstance();
 
-	textureHandle_ = TextureManager::Load("Playerr1.png");
-
+	// ファイル名を指定してテクスチャを読み込む
+	textureHandle_ = TextureManager::Load("white1x1.png");
+	// スプライトの生成
+	// sprite_ = Sprite::Create(textureHandle_, {100, 50});
+	// ワールドトランスフォームの初期化
 	worldTransform_.Initialize();
-
+	// ビューポートプロジェクションの初期化
 	viewProjection_.Initialize();
-
-
+	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
 	// 軸方向表示の表示を有効にする
 	AxisIndicator::GetInstance()->SetVisible(true);
 	// 軸方向表示が参考するビュープロジェクションを指定する(アドレス渡し)
 	AxisIndicator::GetInstance()->SetTargetViewProjection(&debugCamera_->GetViewProjection());
 
-	// 3Dモデルの生成
-	modelPlayer_.reset(Model::CreateFromOBJ("player", true));
+	// 自機の体の3Dモデルの生成
+	modelFighterBody_.reset(Model::CreateFromOBJ("float_Body", true));
+	// 自機の頭の3Dモデルの生成
+	modelFighterHead_.reset(Model::CreateFromOBJ("float_Head", true));
+	// 自機の左腕の3Dモデルの生成
+	modelFighterL_arm_.reset(Model::CreateFromOBJ("float_L_arm", true));
+	// 自機の右腕の3Dモデルの生成
+	modelFighterR_arm_.reset(Model::CreateFromOBJ("float_R_arm", true));
 	// 天球の3Dモデル生成
 	modelSkydome_.reset(Model::CreateFromOBJ("skydome", true));
 	// 地面の3Dモデル生成
@@ -38,7 +44,9 @@ void GameScene::Initialize() {
 
 	// 自キャラの生成と初期化処理
 	player_ = std::make_unique<Player>();
-	player_->Initialize(modelPlayer_.get());
+	player_->Initialize(
+	    modelFighterBody_.get(), modelFighterHead_.get(), modelFighterL_arm_.get(),
+	    modelFighterR_arm_.get());
 
 	// 天球の生成と初期化処理
 	skydome_ = std::make_unique<Skydome>();
@@ -56,12 +64,11 @@ void GameScene::Initialize() {
 
 	// 自キャラのビュープロジェクションに追従カメラのビュープロジェクションをセット
 	player_->SetViewProjection(&followCamera_->GetViewProjection());
-
 }
 
 void GameScene::Update() {
 
-	#ifdef _DEBUG
+#ifdef _DEBUG
 
 	if (input_->TriggerKey(DIK_1)) {
 		isDebugCameraActive_ = 1;
@@ -159,7 +166,6 @@ void GameScene::Draw() {
 
 	// スプライト描画後処理
 	Sprite::PostDraw();
-
 
 #pragma endregion
 }

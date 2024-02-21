@@ -1,10 +1,11 @@
-﻿#include "Input.h"
+﻿#pragma once
+#include "Input.h"
 #include "Model.h"
 #include "WorldTransform.h"
 #include <cassert>
-class Player 
-{
+class Player {
 public: // メンバ関数
+
 	/// <summary>
 	/// 初期化
 	/// </summary>

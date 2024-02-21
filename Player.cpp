@@ -2,7 +2,6 @@
 #include "ImGuiManager.h"
 #include <MyMath.h>
 
-
 void Player::Initialize(Model* modelBody, Model* modelHead, Model* modelL_arm, Model* modelR_arm) {
 	assert(modelBody);
 	assert(modelHead);
