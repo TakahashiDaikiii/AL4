@@ -1,17 +1,14 @@
-﻿#pragma once
-#include"Model.h"
-#include"WorldTransform.h"
-#include<cassert>
-#include<PrimitiveDrawer.h>
-#include<Input.h>
-#include"Model.h"
-#include"WorldTransform.h"
-
-
-class Player {
-public:
-
-	void Initialize(Model* model);
+﻿#include "Input.h"
+#include "Model.h"
+#include "WorldTransform.h"
+#include <cassert>
+class Player 
+{
+public: // メンバ関数
+	/// <summary>
+	/// 初期化
+	/// </summary>
+	void Initialize(Model* modelBody, Model* modelHead, Model* modelL_arm, Model* modelR_arm);
 
 	/// <summary>
 	/// 毎フレーム処理
@@ -34,15 +31,39 @@ public:
 		viewProjection_ = viewProjection;
 	}
 
+	/// <summary>
+	/// 浮遊ギミック初期化
+	/// </summary>
+	void InitializeFloatingGimmick();
+
+	/// <summary>
+	/// 浮遊ギミック更新
+	/// </summary>
+	void UpdateFlotingGimmick();
+
+	void UpdataArmAnimation();
+
+	void SetParent(const WorldTransform* parent) { worldTransform_.parent_ = parent; }
+
 private:
 	Input* input_ = nullptr;
 
 	// ワールド変換データ
 	WorldTransform worldTransform_;
 	// モデル
-	Model* model_ = nullptr;
+	Model* modelFighterBody_;
+	Model* modelFighterHead_;
+	Model* modelFighterL_arm_;
+	Model* modelFighterR_arm_;
 
-	//カメラのビュープロジェクション
+	WorldTransform worldTransformBody_;
+	WorldTransform worldTransformHead_;
+	WorldTransform worldTransformL_arm_;
+	WorldTransform worldTransformR_arm_;
+
+	// 浮遊ギミックの媒介変数
+	float floatingParameter_ = 0.0f;
+
+	// カメラのビュープロジェクション
 	const ViewProjection* viewProjection_ = nullptr;
-
 };
