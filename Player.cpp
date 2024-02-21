@@ -1,156 +1,81 @@
 ﻿#include "Player.h"
-#include<cassert>
-#include"WorldTransform.h"
-#include"Model.h"
-#include"MyMath.h"
-#include"ImGuiManager.h"
-void Player::Initialize(Model* model) 
-{
-	assert(model); 
-	
-    model_ = model;
-	
+#include <MyMath.h>
 
+
+
+void Player::Initialize(Model* model) {
+	assert(model);
 	input_ = Input::GetInstance();
 
-
-	// X,Y,Z 方向のスケーリングを設定
-	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
-
+	// 引数として受け取ったデータをメンバ変数に記録する
+	model_ = model;
+	// ワールド変換の初期化
 	worldTransform_.Initialize();
-	
-	worldTransform_.rotation_ = {0.0f, 0.0f, 0.0f};
-
-	worldTransform_.Initialize();
-
-	worldTransform_.translation_ = {0.0f, 0.0f, 0.0f};
-
-	worldTransform_.Initialize();
-
-
 }
 
 void Player::Update() {
-	Vector3 move = {0, 0, 0};
 
-	const float kCharacterSpeed = 0.2f;
+	// ゲームパッドの状態を得る変数
+	XINPUT_STATE joyState;
 
-	if (input_->PushKey(DIK_LEFT)) {
-		move.x -= kCharacterSpeed;
-	} else if (input_->PushKey(DIK_RIGHT)) {
-		move.x += kCharacterSpeed;
+	// ゲームパッド状態取得、ゲームパッドが有効の場合if文が通る
+	if (Input::GetInstance()->GetJoystickState(0, joyState)) {
+
+		// 速さ
+		const float speed = 0.3f;
+
+		// 移動量
+		Vector3 move = {
+		    (float)joyState.Gamepad.sThumbLX / SHRT_MAX * speed, // Lスティックの横成分
+		    0.0f,
+		    (float)joyState.Gamepad.sThumbLY / SHRT_MAX * speed, // Lスティックの縦成分
+		};
+
+		Matrix4x4 rotationXMatrix = MakeRotateXmatrix(viewProjection_->rotation_.x);
+		Matrix4x4 rotationYMatrix = MakeRotateYmatrix(viewProjection_->rotation_.y);
+		Matrix4x4 rotationZMatrix = MakeRotateZmatrix(viewProjection_->rotation_.z);
+		Matrix4x4 rotationXYZMatrix =
+		    Multiply(rotationXMatrix, Multiply(rotationYMatrix, rotationZMatrix));
+
+		// 移動量に速さを反映
+		move = Multiply(speed, Normalize(move));
+
+		// 移動量に速さを反映(θ度の移動ベクトル)
+		// rotation = (viewProjection_->rotation_.y);
+
+		move = Transform(move, rotationXYZMatrix);
+
+		if (move.y != 0 || move.z != 0) {
+			worldTransform_.rotation_.y = std::atan2(move.x, move.z);
+		}
+
+		// 移動
+		worldTransform_.translation_ = Add(worldTransform_.translation_, move);
 	}
 
-	if (input_->PushKey(DIK_UP)) {
-		move.z += kCharacterSpeed;
-	} else if (input_->PushKey(DIK_DOWN)) {
-		move.z -= kCharacterSpeed;
-	}
-
-	worldTransform_.translation_.x += move.x;
-	worldTransform_.translation_.y -= move.y;
-	worldTransform_.translation_.z += move.z;
-
-	// スケーリング行列を宣言
-
-	Matrix4x4 matScale = {0};
-
-	matScale.m[0][0] = worldTransform_.scale_.x;
-	matScale.m[1][1] = worldTransform_.scale_.y;
-	matScale.m[2][2] = worldTransform_.scale_.z;
-	matScale.m[3][3] = 1;
-
-	worldTransform_.TransferMatrix();
-
-	Matrix4x4 matRotX = {0};
-
-	matRotX.m[0][0] = 1;
-	matRotX.m[1][1] = cosf(worldTransform_.rotation_.x);
-	matRotX.m[2][1] = -sinf(worldTransform_.rotation_.x);
-	matRotX.m[1][2] = sinf(worldTransform_.rotation_.x);
-	matRotX.m[2][2] = cosf(worldTransform_.rotation_.x);
-	matRotX.m[3][3] = 1;
-
-	// 行列の転送
-	worldTransform_.TransferMatrix();
-
-	// Y
-
-	Matrix4x4 matRotY = {0};
-	matRotY.m[0][0] = cosf(worldTransform_.rotation_.y);
-	matRotY.m[1][1] = 1;
-	matRotY.m[0][2] = -sinf(worldTransform_.rotation_.y);
-	matRotY.m[2][0] = sinf(worldTransform_.rotation_.y);
-	matRotY.m[2][2] = cosf(worldTransform_.rotation_.y);
-	matRotY.m[3][3] = 1;
-
-	worldTransform_.TransferMatrix();
-
-	// Z
-	Matrix4x4 matRotZ = {0};
-	matRotZ.m[0][0] = cosf(worldTransform_.rotation_.z);
-	matRotZ.m[1][0] = sinf(worldTransform_.rotation_.z);
-	matRotZ.m[0][1] = -sinf(worldTransform_.rotation_.z);
-	matRotZ.m[1][1] = cosf(worldTransform_.rotation_.z);
-	matRotZ.m[2][2] = 1;
-	matRotZ.m[3][3] = 1;
-
-	Matrix4x4 matRot=Multiply(Multiply( matRotZ,matRotX), matRotY);
-
-	worldTransform_.TransferMatrix();
-
-	Matrix4x4 matTrans = {0};
-
-	matTrans.m[0][0] = 1;
-	matTrans.m[1][1] = 1;
-	matTrans.m[2][2] = 1;
-	matTrans.m[3][3] = 1;
-	matTrans.m[3][0] = worldTransform_.translation_.x;
-	matTrans.m[3][1] = worldTransform_.translation_.y;
-	matTrans.m[3][2] = worldTransform_.translation_.z;
-
-	worldTransform_.matWorld_ = Multiply(Multiply(matScale, matRot) , matTrans);
-
-
-	worldTransform_.TransferMatrix();
-
-	//キャラクターの座標を画面表示する処理
-
-	ImGui::Begin("Debug");
-	float playerPos[] = {
-	    worldTransform_.translation_.x,
-	    worldTransform_.translation_.y,
-	    worldTransform_.translation_.z,
-
-	};
-
-	ImGui::SliderFloat3("PlayerPos", playerPos, 0, 1);
-
-	worldTransform_.translation_.x = playerPos[0];
-
-	worldTransform_.translation_.y = playerPos[1];
-
-	worldTransform_.translation_.z = playerPos[2];
-
-	ImGui::End();
-
-	const float kMoveLimitX = 31;
-
-	const float kMoveLimitY = 17;
-
-	worldTransform_.translation_.x = max(worldTransform_.translation_.x, -kMoveLimitX);
-
-	worldTransform_.translation_.x = min(worldTransform_.translation_.x, +kMoveLimitX);
-
-	worldTransform_.translation_.y = max(worldTransform_.translation_.y, -kMoveLimitY);
-
-	worldTransform_.translation_.y = min(worldTransform_.translation_.y, +kMoveLimitY);
+	// 行列を定数バッファに転送
+	worldTransform_.UpdateMatrix();
 }
 
+void Player::Draw(const ViewProjection& viewProjection) {
 
+	// 3Dモデルを描画
+	model_->Draw(worldTransform_, viewProjection);
+}
 
+Vector3 Player::GetWorldPosition() {
+	// ワールド座標を入れる変数
+	Vector3 worldPos;
 
-	void Player::Drow(ViewProjection & viewProjection) 
-	{
-		model_->Draw(worldTransform_, viewProjection);
-	}
+	// ワールド行列の平行移動成分を取得(ワールド座標)
+	worldPos.x = worldTransform_.matWorld_.m[3][0];
+	worldPos.y = worldTransform_.matWorld_.m[3][1];
+	worldPos.z = worldTransform_.matWorld_.m[3][2];
+
+	return worldPos;
+}
+
+const WorldTransform& Player::GetWorldTransform() {
+	// TODO: return ステートメントをここに挿入します
+	return worldTransform_;
+}
