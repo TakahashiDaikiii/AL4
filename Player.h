@@ -2,6 +2,7 @@
 #include "Input.h"
 #include "Model.h"
 #include "WorldTransform.h"
+#include"ViewProjection.h"
 #include <cassert>
 class Player {
 public: // メンバ関数
