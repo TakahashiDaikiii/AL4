@@ -14,6 +14,7 @@
 #include "ViewProjection.h"
 #include "Item.h"
 #include "WorldTransform.h"
+#include"Safedelete.h"
 #include <memory>
 
 /// <summary>

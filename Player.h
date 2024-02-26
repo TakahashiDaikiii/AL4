@@ -84,11 +84,12 @@ public: // メンバ関数
 	/// <summary>
 	/// 攻撃行動更新
 	/// </summary>
-	void BehaviorAttackUpdate();
 
 	Behavior behavior_ = Behavior::kRoot;
 
 	// getter
+
+	float GetRadius() { return radius_; }
 
 	void ResetPosition();
 

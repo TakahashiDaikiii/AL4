@@ -2,9 +2,9 @@
 #include "AxisIndicator.h"
 #include "TextureManager.h"
 #include <cassert>
-#include<fstream>
+#include <fstream>
 
-    GameScene::GameScene() {}
+GameScene::GameScene() {}
 
 GameScene::~GameScene() {}
 
@@ -27,6 +27,7 @@ void GameScene::Initialize() {
 	AxisIndicator::GetInstance()->SetTargetViewProjection(&debugCamera_->GetViewProjection());
 
 	uint32_t fadeTexHandle = TextureManager::Load("fade.png");
+
 	fadeSprite_ = Sprite::Create(fadeTexHandle, {0, 0});
 
 	// 自機の体の3Dモデルの生成
@@ -49,12 +50,9 @@ void GameScene::Initialize() {
 	    modelFighterBody_.get(), modelFighterHead_.get(), modelFighterL_arm_.get(),
 	    modelFighterR_arm_.get()};
 
-
 	// 自キャラの生成と初期化処理
 	player_ = std::make_unique<Player>();
 	player_->Initialize(playerModels);
-
-	
 
 	// 天球の生成と初期化処理
 	skydome_ = std::make_unique<Skydome>();
@@ -74,7 +72,6 @@ void GameScene::Initialize() {
 	player_->SetViewProjection(&followCamera_->GetViewProjection());
 
 	LoadItemPopData();
-
 }
 
 void GameScene::Update() {
@@ -123,25 +120,32 @@ void GameScene::Update() {
 	viewProjection_.matView = followCamera_->GetViewProjection().matView;
 	viewProjection_.matProjection = followCamera_->GetViewProjection().matProjection;
 
-
-	
-	if (fadeColor_.w <= 0) 
+	/*if (fadeColor_.w <= 0)
 	{
-		CheckAllCollision();
-	}
+	}*/
+	CheckAllCollision();
 
+	items_.remove_if([](std::unique_ptr<Item>& item) {
+		if (item->IsDead()) {
+			item.release();
+			return true;
+		}
+		return false;
+	});
 
 	UpdataItemPopCommands();
 
-	if (count_ >= 3) {
+	if (count_ == 1) {
 
 		fadeColor_.w += 0.005f;
 		fadeSprite_->SetColor(fadeColor_);
 		if (fadeColor_.w >= 1.0f) {
 			isSceneEnd = true;
 		}
-	}
 
+		
+
+	}
 
 	// ビュープロジェクション行列の転送
 	viewProjection_.TransferMatrix();
@@ -173,8 +177,6 @@ void GameScene::Draw() {
 	// 地面の描画
 	ground_->Draw(viewProjection_);
 
-	
-
 	for (const std::unique_ptr<Item>& item : items_) {
 		item->Draw(viewProjection_);
 	}
@@ -191,6 +193,8 @@ void GameScene::Draw() {
 	/// <summary>
 	/// ここに前景スプライトの描画処理を追加できる
 	/// </summary>
+
+	fadeSprite_->Draw();
 
 	// スプライト描画後処理
 	Sprite::PostDraw();
@@ -225,8 +229,7 @@ void GameScene::CheckAllCollision() {
 		float Hit = (posA.x - posB.x) * (posA.x - posB.x) + (posA.y - posB.y) * (posA.y - posB.y) +
 		            (posA.z - posB.z) * (posA.z - posB.z);
 
-		float Radius = (player_->GetRadiusHammer() + item->GetRadius()) *
-		               (player_->GetRadiusHammer() + item->GetRadius());
+		float Radius = (item->GetRadius()) * (player_->GetRadius());
 
 		if (Hit <= Radius) {
 			item->OnCollision();

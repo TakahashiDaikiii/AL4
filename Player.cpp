@@ -35,7 +35,7 @@ void Player::Initialize(const std::vector<Model*>& models) {
 
 	// 自機の頭・両腕の初期位置
 	worldTransformHead_.translation_ = {0.0f, 2.0f, 0.0f};
-	worldTransformL_arm_.translation_ = {-0.5f, 1.0f, 0.0f};
+	worldTransformL_arm_.translation_ = {-0.5f, 1.3f, 0.0f};
 	worldTransformR_arm_.translation_ = {0.5f, 1.0f, 0.0f};
 
 	worldTransformL_arm_.rotation_ = {-0.2f, 0.0f, 0.0f};
@@ -80,7 +80,6 @@ void Player::Update() {
 		break;
 		// 通常攻撃
 	case Behavior::kAttack:
-		BehaviorAttackUpdate();
 		break;
 	}
 
@@ -218,44 +217,12 @@ void Player::BehaviorRootUpdate() {
 		// 移動
 		worldTransform_.translation_ = Add(worldTransform_.translation_, move);
 	}
-
-	// ゲームパッド状態取得
-	if (Input::GetInstance()->GetJoystickState(0, joyState)) {
-		// Aボタンの判定
-		// XINPUT_GAMEPAD_Aとか調べれば公式リファレンスが出てくるので各自調べること
-		if (joyState.Gamepad.wButtons == XINPUT_GAMEPAD_A) {
-			behavior_ = Behavior::kAttack;
-		}
-	}
 }
-
-//void Player::BehaviorAttackUpdate() {
-//
-//	const float kDegreeToRadian = (float)M_PI / 180.0f;
-//
-//	attackTime_++;
-//	if (attackTime_ <= attackTimeMax_) {
-//		float frame = (float)(attackTime_ / attackTimeMax_);
-//		float easeInBack = EaseInBack(frame * frame);
-//		float weaponAngle = (float)((90 * kDegreeToRadian)) * easeInBack;
-//		float armAngle = (float)((120 * kDegreeToRadian)) * easeInBack;
-//		worldTransformHammer_.rotation_.x = weaponAngle;
-//		worldTransformL_arm_.rotation_.x = armAngle + (float)M_PI;
-//		worldTransformR_arm_.rotation_.x = armAngle + (float)M_PI;
-//
-//	} else if (attackTime_ >= frameEnd_) {
-//		attackTime_ = 0;
-//		behaviorRequest_ = Behavior::kRoot;
-//
-//	} else if (attackTime_ >= attackTimeMax_) {
-//		// アニメーションが終わったらカメラを揺らす
-//		// FollowCamera
-//	}
 
 void Player::ResetPosition() {
 	// 自機の頭・両腕の初期位置
 	worldTransformHead_.translation_ = {0.0f, 2.0f, 0.0f};
-	worldTransformL_arm_.translation_ = {-0.5f, 1.0f, 0.0f};
+	worldTransformL_arm_.translation_ = {-0.5f, 2.0f, 0.0f};
 	worldTransformR_arm_.translation_ = {0.5f, 1.0f, 0.0f};
 
 	worldTransformL_arm_.rotation_ = {-0.2f, 0.0f, 0.0f};
