@@ -2,9 +2,9 @@
 #include "AxisIndicator.h"
 #include "TextureManager.h"
 #include <cassert>
+#include<fstream>
 
-    GameScene::GameScene() {
-}
+    GameScene::GameScene() {}
 
 GameScene::~GameScene() {}
 
@@ -13,9 +13,6 @@ void GameScene::Initialize() {
 	dxCommon_ = DirectXCommon::GetInstance();
 	input_ = Input::GetInstance();
 	audio_ = Audio::GetInstance();
-
-	// ファイル名を指定してテクスチャを読み込む
-	textureHandle_ = TextureManager::Load("white1x1.png");
 	// スプライトの生成
 	// sprite_ = Sprite::Create(textureHandle_, {100, 50});
 	// ワールドトランスフォームの初期化
@@ -28,6 +25,9 @@ void GameScene::Initialize() {
 	AxisIndicator::GetInstance()->SetVisible(true);
 	// 軸方向表示が参考するビュープロジェクションを指定する(アドレス渡し)
 	AxisIndicator::GetInstance()->SetTargetViewProjection(&debugCamera_->GetViewProjection());
+
+	uint32_t fadeTexHandle = TextureManager::Load("fade.png");
+	fadeSprite_ = Sprite::Create(fadeTexHandle, {0, 0});
 
 	// 自機の体の3Dモデルの生成
 	modelFighterBody_.reset(Model::CreateFromOBJ("float_Body", true));
@@ -42,11 +42,19 @@ void GameScene::Initialize() {
 	// 地面の3Dモデル生成
 	modelGround_.reset(Model::CreateFromOBJ("ground", true));
 
+	modelItem_.reset(Model::CreateFromOBJ("Item", true));
+
+	// 自キャラモデルまとめ
+	std::vector<Model*> playerModels = {
+	    modelFighterBody_.get(), modelFighterHead_.get(), modelFighterL_arm_.get(),
+	    modelFighterR_arm_.get()};
+
+
 	// 自キャラの生成と初期化処理
 	player_ = std::make_unique<Player>();
-	player_->Initialize(
-	    modelFighterBody_.get(), modelFighterHead_.get(), modelFighterL_arm_.get(),
-	    modelFighterR_arm_.get());
+	player_->Initialize(playerModels);
+
+	
 
 	// 天球の生成と初期化処理
 	skydome_ = std::make_unique<Skydome>();
@@ -64,6 +72,9 @@ void GameScene::Initialize() {
 
 	// 自キャラのビュープロジェクションに追従カメラのビュープロジェクションをセット
 	player_->SetViewProjection(&followCamera_->GetViewProjection());
+
+	LoadItemPopData();
+
 }
 
 void GameScene::Update() {
@@ -91,6 +102,11 @@ void GameScene::Update() {
 		viewProjection_.UpdateMatrix();
 	}
 
+	if (fadeColor_.w >= 0 && count_ == 0) {
+		fadeColor_.w -= 0.005f;
+		fadeSprite_->SetColor(fadeColor_);
+	}
+
 	// 自キャラの更新
 	player_->Update();
 
@@ -107,6 +123,26 @@ void GameScene::Update() {
 	viewProjection_.matView = followCamera_->GetViewProjection().matView;
 	viewProjection_.matProjection = followCamera_->GetViewProjection().matProjection;
 
+
+	
+	if (fadeColor_.w <= 0) 
+	{
+		CheckAllCollision();
+	}
+
+
+	UpdataItemPopCommands();
+
+	if (count_ >= 3) {
+
+		fadeColor_.w += 0.005f;
+		fadeSprite_->SetColor(fadeColor_);
+		if (fadeColor_.w >= 1.0f) {
+			isSceneEnd = true;
+		}
+	}
+
+
 	// ビュープロジェクション行列の転送
 	viewProjection_.TransferMatrix();
 }
@@ -120,12 +156,6 @@ void GameScene::Draw() {
 	// 背景スプライト描画前処理
 	Sprite::PreDraw(commandList);
 
-	/// <summary>
-	/// ここに背景スプライトの描画処理を追加できる
-	/// </summary>
-
-	// sprite_->Draw();
-
 	// スプライト描画後処理
 	Sprite::PostDraw();
 	// 深度バッファクリア
@@ -136,15 +166,6 @@ void GameScene::Draw() {
 	// 3Dオブジェクト描画前処理
 	Model::PreDraw(commandList);
 
-	/// <summary>
-	/// ここに3Dオブジェクトの描画処理を追加できる
-	/// </summary>
-
-	// 3D描画
-	// model_->Draw(worldTransform_,viewProjection_,textureHandle_);
-	// デバッグカメラの描画
-	// modelPlayer_->Draw(worldTransform_, debugCamera_->GetViewProjection(), textureHandle_);
-
 	// プレイヤーの描画
 	player_->Draw(viewProjection_);
 	// 天球の描画
@@ -152,8 +173,15 @@ void GameScene::Draw() {
 	// 地面の描画
 	ground_->Draw(viewProjection_);
 
+	
+
+	for (const std::unique_ptr<Item>& item : items_) {
+		item->Draw(viewProjection_);
+	}
+
 	// 3Dオブジェクト描画後処理
 	Model::PostDraw();
+
 #pragma endregion
 
 #pragma region 前景スプライト描画
@@ -168,4 +196,99 @@ void GameScene::Draw() {
 	Sprite::PostDraw();
 
 #pragma endregion
+}
+
+void GameScene::Reset() {
+
+	isSceneEnd = false;
+	count_ = 0;
+
+	player_->ResetPosition();
+
+	fadeColor_.w = 1.0f;
+	fadeSprite_->SetColor(fadeColor_);
+
+	// アイテムのCSVファイル読み込み
+	LoadItemPopData();
+}
+
+void GameScene::CheckAllCollision() {
+
+	Vector3 posA, posB;
+
+	for (const std::unique_ptr<Item>& item : items_) {
+
+		posA = player_->GetWorldPosition();
+
+		posB = item->GetWorldPosition();
+
+		float Hit = (posA.x - posB.x) * (posA.x - posB.x) + (posA.y - posB.y) * (posA.y - posB.y) +
+		            (posA.z - posB.z) * (posA.z - posB.z);
+
+		float Radius = (player_->GetRadiusHammer() + item->GetRadius()) *
+		               (player_->GetRadiusHammer() + item->GetRadius());
+
+		if (Hit <= Radius) {
+			item->OnCollision();
+			count_++;
+		}
+	}
+}
+
+void GameScene::LoadItemPopData() {
+	itemPopCommands.clear();
+	std::ifstream file;
+	file.open("Resources/ItemPop.csv");
+	assert(file.is_open());
+
+	// ファイルの内容を文字列ストリームにコピー
+	itemPopCommands << file.rdbuf();
+
+	// ファイルを閉じる
+	file.close();
+}
+
+void GameScene::UpdataItemPopCommands() {
+	std::string line;
+
+	// コマンド実行ループ
+	while (getline(itemPopCommands, line)) {
+		std::istringstream line_stream(line);
+
+		std::string word;
+		// 　,区切りで行の先頭文字列を所得
+
+		getline(line_stream, word, ',');
+
+		// "//"から始まる行はコメント
+		if (word.find("//") == 0) {
+			// コメント行を飛ばす
+			continue;
+		}
+
+		// POPコマンド
+		if (word.find("POP") == 0) {
+			// x座標
+			getline(line_stream, word, ',');
+			float x = (float)std::atof(word.c_str());
+
+			// y座標
+			getline(line_stream, word, ',');
+			float y = (float)std::atof(word.c_str());
+
+			// z座標
+			getline(line_stream, word, ',');
+			float z = (float)std::atof(word.c_str());
+
+			ItemGenerate({x, y, z});
+		}
+	}
+}
+
+void GameScene::ItemGenerate(Vector3 position) {
+	// アイテムの生成と初期化処理
+	Item* item = new Item();
+	item->Initialize(modelItem_.get(), position);
+
+	items_.push_back(static_cast<std::unique_ptr<Item>>(item));
 }
